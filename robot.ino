@@ -15,16 +15,25 @@ MPU6050 mpu; // adres 0x68 (AD0 LOW)
 
 MotorController motor(pwmR, dirR, pwmL, dirL);
 
-
-double originalSetpoint = 0;
-double setpoint = originalSetpoint;
-double Kp = 30;
-double Ki = 100;
-double Kd = 0.5;
-double input, output;
+// BALANCE PID
+double requestedTheta = 0;
+double balanceKp = 30;
+double balanceKi = 100;
+double balanceKd = 0.5;
+double angleTheta, outputPWM;
 int minAbsSpeed = 10;
 
-  regulatorPID pid(&input, &output, &setpoint, Kp,Ki,Kd, REVERSE);
+  regulatorPID balancePID(&angleTheta, &outputPWM, &requestedTheta, balanceKp,balanceKi,balanceKd, REVERSE);
+  
+ // Velocity PID
+double requestedVelocity = 0;
+double velocityKp = 2;
+double velocityKi = 1.64;
+double velocityKd = 0;
+double velocity = 0;
+  
+  
+  regulatorPID velocityPID(&velocity, &requestedTheta, &requestedVelocity, velocityKp, velocityKi, velocityKd, REVERSE);
 
 
 
@@ -122,9 +131,13 @@ void setup() {
     packetSize = mpu.dmpGetFIFOPacketSize();
 
 
-    pid.SetMode(AUTOMATIC);
-        pid.SetSampleTime(3);
-        pid.SetOutputLimits(-255, 255);  
+    balancePID.SetMode(AUTOMATIC);
+        balancePID.SetSampleTime(3);
+        balancePID.SetOutputLimits(-255, 255);  
+
+        velocityPID.SetMode(AUTOMATIC);
+        velocityPID.SetSampleTime(3);
+        velocityPID.SetOutputLimits(-20, 20); 
   } else {
     // ERROR!
     // 1 = initial memory load failed
@@ -169,14 +182,15 @@ void loop() {
     if(abs(ypr[1]) > 0.6)
 {
  // motor.stopMoving();
-  input = setpoint;
+  angleTheta = requestedTheta;
   motor.move(0);
 }
 else{
-  input = ypr[1] * 180/M_PI;
-  pid.Compute();
+  angleTheta = ypr[1] * 180/M_PI;
+  velocityPID.Compute();
+  balancePID.Compute();
     
-    motor.move(output,minAbsSpeed);
+    motor.move(outputPWM,minAbsSpeed);
 }
     
 
@@ -191,19 +205,19 @@ else{
       switch (inChar)
       {
         case 's':
-          setpoint = data;
+          requestedTheta = data;
           break;
         case 'p':
-          Kp = data;
-          pid.SetTunings(Kp, Ki, Kd);
+          balanceKp = data;
+          balancePID.SetTunings(balanceKp, balanceKi, balanceKd);
           break;
         case 'i':
-          Ki = data;
-          pid.SetTunings(Kp, Ki, Kd);
+          balanceKi = data;
+          balancePID.SetTunings(balanceKp, balanceKi, balanceKd);
           break;
         case 'd':
-          Kd = data;
-          pid.SetTunings(Kp, Ki, Kd);
+          balanceKd = data;
+          balancePID.SetTunings(balanceKp, balanceKi, balanceKd);
           break;
         case 'm':
           minAbsSpeed = (int)data;
@@ -274,9 +288,9 @@ else{
 #if 1
   Serial.print("ypr");Serial.print("\t");
   Serial.print(ypr[1] * 180 / M_PI);Serial.print("\t");
-  Serial.print(setpoint); Serial.print("\t");
-  Serial.print(input); Serial.print("\t");
-  Serial.print(output); Serial.println("\t");
+  Serial.print(requestedTheta); Serial.print("\t");
+  Serial.print(angleTheta); Serial.print("\t");
+  Serial.print(outputPWM); Serial.println("\t");
 #endif  
     // blink LED to indicate activity
     blinkState = !blinkState;
