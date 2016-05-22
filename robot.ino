@@ -16,12 +16,15 @@ MPU6050 mpu; // adres 0x68 (AD0 LOW)
 MotorController motor(pwmR, dirR, pwmL, dirL);
 
 
-double originalSetpoint = -1.5;
+double originalSetpoint = 0;
 double setpoint = originalSetpoint;
-double movingAngleOffset = 0.3;
+double Kp = 30;
+double Ki = 100;
+double Kd = 0.5;
 double input, output;
+int minAbsSpeed = 10;
 
-  regulatorPID pid(&input, &output, &setpoint, 30, 100, 0.5, DIRECT);
+  regulatorPID pid(&input, &output, &setpoint, Kp,Ki,Kd, REVERSE);
 
 
 
@@ -120,7 +123,7 @@ void setup() {
 
 
     pid.SetMode(AUTOMATIC);
-        pid.SetSampleTime(10);
+        pid.SetSampleTime(3);
         pid.SetOutputLimits(-255, 255);  
   } else {
     // ERROR!
@@ -163,10 +166,56 @@ void loop() {
 #endif
 
     }
-    pid.Compute();
+    if(abs(ypr[1]) > 0.6)
+{
+ // motor.stopMoving();
+  input = setpoint;
+  motor.move(0);
+}
+else{
+  input = ypr[1] * 180/M_PI;
+  pid.Compute();
     
-    motor.move(output);
+    motor.move(output,minAbsSpeed);
+}
     
+
+
+    if(Serial.available() )
+    {
+      char inChar = (char)Serial.read();
+      char tab = (char)Serial.read();
+      float data = Serial.parseFloat();
+      char newLine = (char)Serial.read();
+
+      switch (inChar)
+      {
+        case 's':
+          setpoint = data;
+          break;
+        case 'p':
+          Kp = data;
+          pid.SetTunings(Kp, Ki, Kd);
+          break;
+        case 'i':
+          Ki = data;
+          pid.SetTunings(Kp, Ki, Kd);
+          break;
+        case 'd':
+          Kd = data;
+          pid.SetTunings(Kp, Ki, Kd);
+          break;
+        case 'm':
+          minAbsSpeed = (int)data;
+          break;
+        default:
+          break;
+      }
+//      Serial.print(inChar);
+//      Serial.print(tab);
+//      Serial.print(data);
+//      Serial.print(newLine);
+    }
     // other program behavior stuff here
     // .
     // .
@@ -221,20 +270,14 @@ void loop() {
     Serial.print("\t\r\n");
 #endif
 
-if(abs(ypr[1]) > 0.6)
-{
-  motor.stopMoving();
-  input = setpoint;
-}
-else{
-  input = setpoint - ypr[1] * 180/M_PI;
-}
+
+#if 1
   Serial.print("ypr");Serial.print("\t");
   Serial.print(ypr[1] * 180 / M_PI);Serial.print("\t");
   Serial.print(setpoint); Serial.print("\t");
   Serial.print(input); Serial.print("\t");
   Serial.print(output); Serial.println("\t");
-  
+#endif  
     // blink LED to indicate activity
     blinkState = !blinkState;
     digitalWrite(LED_PIN, blinkState);
