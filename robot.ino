@@ -1,4 +1,5 @@
 #include <Wire.h>
+#include <Encoder.h>
 #include "I2Cdev.h"
 #include "MPU6050_6Axis_MotionApps20.h"
 #include "motorcontroller.h"
@@ -12,28 +13,47 @@ MPU6050 mpu; // adres 0x68 (AD0 LOW)
 #define pwmL 6
 #define dirL 7
 
+Encoder encLeft(2, 9);
+Encoder encRight(3, 8);
+
+double encPosition = 0;
+double encOrientation = 0;
+double encVelocity = 0;
+double encVelocityFiltered = 0;
+double filterLPF = 0.08;
+long lastTime = 0;
 
 MotorController motor(pwmR, dirR, pwmL, dirL);
 
 // BALANCE PID
 double requestedTheta = 0;
-double balanceKp = 30;
+double balanceKp = 15;
 double balanceKi = 100;
 double balanceKd = 0.5;
 double angleTheta, outputPWM;
-int minAbsSpeed = 10;
+int minAbsSpeed = 0;
 
-  regulatorPID balancePID(&angleTheta, &outputPWM, &requestedTheta, balanceKp,balanceKi,balanceKd, REVERSE);
-  
- // Velocity PID
+regulatorPID balancePID(&angleTheta, &outputPWM, &requestedTheta, balanceKp, balanceKi, balanceKd, REVERSE);
+
+// Velocity PID
 double requestedVelocity = 0;
-double velocityKp = 2;
-double velocityKi = 1.64;
+double velocityKp = 20;
+double velocityKi = 0;
 double velocityKd = 0;
 double velocity = 0;
-  
-  
-  regulatorPID velocityPID(&velocity, &requestedTheta, &requestedVelocity, velocityKp, velocityKi, velocityKd, REVERSE);
+
+
+regulatorPID velocityPID(&velocity, &requestedTheta, &requestedVelocity, velocityKp, velocityKi, velocityKd, DIRECT);
+
+// Position PID
+double requestedPosition = 0;
+double positionKp = 1;
+double positionKi = 0;
+double positionKd = 0;
+double position = 0;
+
+
+regulatorPID positionPID(&position, &requestedVelocity, &requestedPosition, positionKp, positionKi, positionKd, DIRECT);
 
 
 
@@ -120,7 +140,7 @@ void setup() {
 
     // enable Arduino interrupt detection
     Serial.println(F("Enabling interrupt detection (Arduino external interrupt 0)..."));
-    attachInterrupt(0, dmpDataReady, RISING);
+    attachInterrupt(digitalPinToInterrupt(10), dmpDataReady, RISING);
     mpuIntStatus = mpu.getIntStatus();
 
     // set our DMP Ready flag so the main loop() function knows it's okay to use it
@@ -132,12 +152,16 @@ void setup() {
 
 
     balancePID.SetMode(AUTOMATIC);
-        balancePID.SetSampleTime(3);
-        balancePID.SetOutputLimits(-255, 255);  
+    balancePID.SetSampleTime(3);
+    balancePID.SetOutputLimits(-255, 255);
 
-        velocityPID.SetMode(AUTOMATIC);
-        velocityPID.SetSampleTime(3);
-        velocityPID.SetOutputLimits(-20, 20); 
+    velocityPID.SetMode(AUTOMATIC);
+    velocityPID.SetSampleTime(3);
+    velocityPID.SetOutputLimits(-20, 20);
+    
+    positionPID.SetMode(AUTOMATIC);
+    positionPID.SetSampleTime(3);
+    positionPID.SetOutputLimits(-30, 30);
   } else {
     // ERROR!
     // 1 = initial memory load failed
@@ -150,8 +174,16 @@ void setup() {
   }
   // configure LED for output
 
+  lastTime = millis();
+  //  long actTimeMillis = millis();
+  // int dtMillis = actTimeMillis - lastTimeMillis;
 
-  
+  long newLeft, newRight;
+  newLeft = encLeft.read();
+  newRight = encRight.read();
+  encPosition = (double)(newLeft + newRight) / 2400; //obroty
+  encOrientation = (double)(newLeft - newRight) * 360 / 3840;
+
   pinMode(LED_PIN, OUTPUT);
 }
 
@@ -160,7 +192,7 @@ void loop() {
   if (!dmpReady) return;
 
   // wait for MPU interrupt or extra packet(s) available
-  while (!mpuInterrupt && fifoCount < packetSize) {
+//  while (!mpuInterrupt && fifoCount < packetSize) {
     if (oneTime) {
       oneTime = false;
 
@@ -179,23 +211,45 @@ void loop() {
 #endif
 
     }
-    if(abs(ypr[1]) > 0.6)
-{
- // motor.stopMoving();
-  angleTheta = requestedTheta;
-  motor.move(0);
-}
-else{
-  angleTheta = ypr[1] * 180/M_PI;
-  velocityPID.Compute();
-  balancePID.Compute();
-    
-    motor.move(outputPWM,minAbsSpeed);
-}
-    
+    if (abs(ypr[1]) > 0.6)
+    {
+      // motor.stopMoving();
+      angleTheta = requestedTheta;
+      motor.move(0);
+    }
+    else {
+      angleTheta = ypr[1] * 180 / M_PI;
+      positionPID.Compute();
+      velocityPID.Compute();
+      balancePID.Compute();
+
+      motor.move(outputPWM, minAbsSpeed);
+    }
+
+    long actTime = micros();
+    if ((actTime - lastTime) > 5)
+    {
+      int dt = actTime - lastTime;
+      lastTime = actTime;
+
+      long newLeft, newRight;
+      newLeft = encLeft.read();
+      newRight = encRight.read();
+      double newPosition = (double)(newLeft + newRight) / 2400; 
+//      Serial.print(newLeft);
+//      Serial.print("\t");
+//      Serial.println(newRight);
+      encOrientation = (double)(newLeft - newRight) * 360 / 3718; //3840;
+      encVelocity = (double)(newPosition - encPosition) * 188500 / dt;  // obr/min: (double)(newPosition - encPosition) * 60000000 / dt;
+      encVelocityFiltered = encVelocityFiltered * (1 - filterLPF) + encVelocity * filterLPF;
+
+      position = (double) newPosition * 0.1885;
+      velocity = encVelocityFiltered;
+      encPosition = newPosition;
+    }
 
 
-    if(Serial.available() )
+    if (Serial.available() )
     {
       char inChar = (char)Serial.read();
       char tab = (char)Serial.read();
@@ -222,13 +276,40 @@ else{
         case 'm':
           minAbsSpeed = (int)data;
           break;
+        case 'f':
+          filterLPF = data;
+          break;
+        case 'q':
+          velocityKp = data;
+          velocityPID.SetTunings(velocityKp, velocityKi, velocityKd);
+          break;
+        case 'w':
+          velocityKi = data;
+          velocityPID.SetTunings(velocityKp, velocityKi, velocityKd);
+          break;
+        case 'e':
+          velocityKd = data;
+          velocityPID.SetTunings(velocityKp, velocityKi, velocityKd);
+          break;
+        case 'r':
+          positionKp = data;
+          positionPID.SetTunings(positionKp, positionKi, positionKd);
+          break;
+        case 't':
+          positionKi = data;
+          positionPID.SetTunings(positionKp, positionKi, positionKd);
+          break;
+        case 'y':
+          positionKd = data;
+          positionPID.SetTunings(positionKp, positionKi, positionKd);
+          break;
         default:
           break;
       }
-//      Serial.print(inChar);
-//      Serial.print(tab);
-//      Serial.print(data);
-//      Serial.print(newLine);
+      //      Serial.print(inChar);
+      //      Serial.print(tab);
+      //      Serial.print(data);
+      //      Serial.print(newLine);
     }
     // other program behavior stuff here
     // .
@@ -241,7 +322,7 @@ else{
     // .
     // .
 
-  }
+ // }
   oneTime = true;
   // reset interrupt flag and get INT_STATUS byte
   mpuInterrupt = false;
@@ -271,10 +352,10 @@ else{
     mpu.dmpGetQuaternion(&q, fifoBuffer);
     mpu.dmpGetGravity(&gravity, &q);
     mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
-    
+
 #if 0//OUTPUT_READABLE_YAWPITCHROLL
     // display Euler angles in degrees
-    
+
     Serial.print("\r\nypr\t");
     Serial.print(ypr[0] * 180 / M_PI);
     Serial.print("\t");
@@ -285,13 +366,31 @@ else{
 #endif
 
 
+#if 0
+    Serial.print("ypr"); Serial.print("\t");
+    Serial.print(ypr[1] * 180 / M_PI); Serial.print("\t");
+    Serial.print(requestedTheta); Serial.print("\t");
+    Serial.print(angleTheta); Serial.print("\t");
+    Serial.print(outputPWM); Serial.println("\t");
+#endif
+
+#if 0
+    Serial.print("ypr"); Serial.print("\t");
+    Serial.print(ypr[0] * 180 / M_PI); Serial.print("\t");
+    Serial.print(encOrientation); Serial.print("\t");
+    Serial.print(encVelocity); Serial.print("\t");
+    Serial.print(encVelocityFiltered); Serial.println("\t");
+#endif
+
+
 #if 1
-  Serial.print("ypr");Serial.print("\t");
-  Serial.print(ypr[1] * 180 / M_PI);Serial.print("\t");
-  Serial.print(requestedTheta); Serial.print("\t");
-  Serial.print(angleTheta); Serial.print("\t");
-  Serial.print(outputPWM); Serial.println("\t");
-#endif  
+    Serial.print("ypr"); Serial.print("\t");
+    Serial.print(ypr[1] * 180 / M_PI); Serial.print("\t");
+    Serial.print(requestedTheta); Serial.print("\t");
+    Serial.print(requestedVelocity); Serial.print("\t");
+    Serial.print(position); Serial.println("\t");
+    //&angleTheta, &outputPWM, &requestedTheta
+#endif
     // blink LED to indicate activity
     blinkState = !blinkState;
     digitalWrite(LED_PIN, blinkState);
