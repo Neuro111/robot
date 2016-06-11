@@ -261,6 +261,21 @@ void loop() {
 
       switch (inChar)
       {
+        case 'u':
+        {
+          double reqSpeed = data;
+        //  positionPID.SetOutputLimits(-itermlim, itermlim);
+          requestedVelocity = reqSpeed /100;
+        }
+         // requestedTheta = data;
+          break;
+          case 'a':
+        {
+          bool checked = data;
+          positionPID.SetMode(checked? AUTOMATIC:MANUAL);
+        }
+         // requestedTheta = data;
+          break;
         case 's':
         {
           double itermlim = data;
