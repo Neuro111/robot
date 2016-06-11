@@ -47,7 +47,7 @@ regulatorPID velocityPID(&velocity, &requestedTheta, &requestedVelocity, velocit
 
 // Position PID
 double requestedPosition = 0;
-double positionKp = 0;
+double positionKp = 1;
 double positionKi = 0;
 double positionKd = 0;
 double position = 0;
@@ -159,12 +159,12 @@ void setup() {
     velocityPID.SetMode(AUTOMATIC);
     velocityPID.SetSampleTime(3);
     velocityPID.SetOutputLimits(-30, 30); // maksymalny kąt, którym robot będzie hamował
-    velocityPID.SetITermLimits(-15, 15);  // maksymalny kąt, w którym robot będzie próbował balansować przy zmienionym obciążeniu
+    velocityPID.SetITermLimits(-3, 3);  // maksymalny kąt, w którym robot będzie próbował balansować przy zmienionym obciążeniu
         
     positionPID.SetMode(AUTOMATIC);
     positionPID.SetSampleTime(100);
     positionPID.SetOutputLimits(-0.2, 0.2); // maksymalna prędkość którą robot będzie wracał do pozycji
-    positionPID.SetITermLimits(-10, 10);
+    positionPID.SetITermLimits(-0.2, 0.2);
   } else {
     // ERROR!
     // 1 = initial memory load failed
@@ -262,7 +262,12 @@ void loop() {
       switch (inChar)
       {
         case 's':
-          requestedTheta = data;
+        {
+          double itermlim = data;
+        //  positionPID.SetOutputLimits(-itermlim, itermlim);
+          positionPID.SetOutputLimits(-itermlim, itermlim);
+        }
+         // requestedTheta = data;
           break;
         case 'p':
           balanceKp = data;
