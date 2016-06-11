@@ -154,14 +154,17 @@ void setup() {
     balancePID.SetMode(AUTOMATIC);
     balancePID.SetSampleTime(3);
     balancePID.SetOutputLimits(-255, 255);
+    balancePID.SetITermLimits(-255, 255);
 
     velocityPID.SetMode(AUTOMATIC);
     velocityPID.SetSampleTime(3);
     velocityPID.SetOutputLimits(-20, 20);
+    velocityPID.SetITermLimits(-6, 6);
     
     positionPID.SetMode(AUTOMATIC);
     positionPID.SetSampleTime(3);
-    positionPID.SetOutputLimits(-30, 30);
+    positionPID.SetOutputLimits(-0.1, 0.1);
+    positionPID.SetITermLimits(-10, 10);
   } else {
     // ERROR!
     // 1 = initial memory load failed

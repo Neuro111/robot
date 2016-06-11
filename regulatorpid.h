@@ -26,7 +26,7 @@ public:
   void SetOutputLimits(double, double); //clamps the output to a specific range. 0-255 by default, but
                                                                                 //it's likely the user will want to change this depending on
                                                                                 //the application
-
+  void SetITermLimits(double, double);
 
 
 //available but not commonly used functions ********************************************************
@@ -72,6 +72,7 @@ private:
 
       int SampleTime;
       double outMin, outMax;
+      double ITermMin, ITermMax;
       bool inAuto;
 };
 

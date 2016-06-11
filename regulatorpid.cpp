@@ -17,6 +17,7 @@ regulatorPID::regulatorPID(double* Input, double* Output, double* Setpoint,
 {
         regulatorPID::SetOutputLimits(0, 255);				//default output limit corresponds to
                                                                                                 //the arduino pwm limits
+        regulatorPID::SetITermLimits(0,255);
 
     SampleTime = 100;							//default Controller Sample Time is 0.1 seconds
 
@@ -48,8 +49,8 @@ void regulatorPID::Compute()
           double input = *myInput;
       double error = *mySetpoint - input;
       ITerm+= (ki * error);
-      if(ITerm > outMax) ITerm= outMax;
-      else if(ITerm < outMin) ITerm= outMin;
+      if(ITerm > ITermMax) ITerm= ITermMax;
+      else if(ITerm < ITermMin) ITerm= ITermMin;
       double dInput = (input - lastInput);
 
       /*Compute PID Output*/
@@ -119,6 +120,9 @@ void regulatorPID::SetOutputLimits(double Min, double Max)
    outMin = Min;
    outMax = Max;
 
+   if(ITermMin < outMin) ITermMin = outMin;
+   if(ITermMax > outMax) ITermMax = outMax;
+   
    if(inAuto)
    {
            if(*myOutput > outMax) *myOutput = outMax;
@@ -126,6 +130,22 @@ void regulatorPID::SetOutputLimits(double Min, double Max)
 
            if(ITerm > outMax) ITerm= outMax;
            else if(ITerm < outMin) ITerm= outMin;
+   }
+}
+
+
+void regulatorPID::SetITermLimits(double Min, double Max)
+{
+   if(Min >= Max) return;
+   if(ITermMin < outMin) return;
+   if(ITermMax > outMax) return;
+   ITermMin = Min;
+   ITermMax = Max;
+
+   if(inAuto)
+   {
+           if(ITerm > ITermMax) ITerm= ITermMax;
+           else if(ITerm < ITermMin) ITerm= ITermMin;
    }
 }
 
@@ -152,8 +172,8 @@ void regulatorPID::Initialize()
 {
    ITerm = *myOutput;
    lastInput = *myInput;
-   if(ITerm > outMax) ITerm = outMax;
-   else if(ITerm < outMin) ITerm = outMin;
+   if(ITerm > ITermMax) ITerm = ITermMax;
+   else if(ITerm < ITermMin) ITerm = ITermMin;
 }
 
 /* SetControllerDirection(...)*************************************************
