@@ -38,7 +38,7 @@ regulatorPID balancePID(&angleTheta, &outputPWM, &requestedTheta, balanceKp, bal
 // Velocity PID
 double requestedVelocity = 0;
 double velocityKp = 20;
-double velocityKi = 0;
+double velocityKi = 15;
 double velocityKd = 0;
 double velocity = 0;
 
@@ -47,7 +47,7 @@ regulatorPID velocityPID(&velocity, &requestedTheta, &requestedVelocity, velocit
 
 // Position PID
 double requestedPosition = 0;
-double positionKp = 1;
+double positionKp = 0;
 double positionKi = 0;
 double positionKd = 0;
 double position = 0;
@@ -158,12 +158,12 @@ void setup() {
 
     velocityPID.SetMode(AUTOMATIC);
     velocityPID.SetSampleTime(3);
-    velocityPID.SetOutputLimits(-20, 20);
-    velocityPID.SetITermLimits(-6, 6);
-    
+    velocityPID.SetOutputLimits(-30, 30); // maksymalny kąt, którym robot będzie hamował
+    velocityPID.SetITermLimits(-15, 15);  // maksymalny kąt, w którym robot będzie próbował balansować przy zmienionym obciążeniu
+        
     positionPID.SetMode(AUTOMATIC);
-    positionPID.SetSampleTime(3);
-    positionPID.SetOutputLimits(-0.1, 0.1);
+    positionPID.SetSampleTime(100);
+    positionPID.SetOutputLimits(-0.2, 0.2); // maksymalna prędkość którą robot będzie wracał do pozycji
     positionPID.SetITermLimits(-10, 10);
   } else {
     // ERROR!
@@ -238,7 +238,7 @@ void loop() {
       long newLeft, newRight;
       newLeft = encLeft.read();
       newRight = encRight.read();
-      double newPosition = (double)(newLeft + newRight) / 2400; 
+      double newPosition = (double)(newLeft + newRight) / 2400;   // obroty kół
 //      Serial.print(newLeft);
 //      Serial.print("\t");
 //      Serial.println(newRight);
@@ -277,7 +277,11 @@ void loop() {
           balancePID.SetTunings(balanceKp, balanceKi, balanceKd);
           break;
         case 'm':
-          minAbsSpeed = (int)data;
+        {
+          double itermlim = data;
+          velocityPID.SetITermLimits(-itermlim, itermlim);
+        }
+         // minAbsSpeed = (int)data;
           break;
         case 'f':
           filterLPF = data;
