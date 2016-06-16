@@ -72,3 +72,26 @@ void MotorController::stopMoving()
 
     _currentSpeed = 0;
 }
+
+void MotorController::moveTurn(int speed, int turn)
+{
+  if ((speed == _currentSpeed)&&(turn == _currentTurn)) return;
+
+  int _speedR = speed + turn;
+  int _speedL = speed - turn;
+  
+    if (_speedR > 255) _speedR = 255;
+    else if (_speedR < -255) _speedR = -255;
+    if (_speedL > 255) _speedL = 255;
+    else if (_speedL < -255) _speedL = -255;
+
+    digitalWrite(_dirL, _speedL > 0 ? HIGH : LOW);
+    digitalWrite(_dirR, _speedR > 0 ? HIGH : LOW);
+    analogWrite(_pwmL, abs(_speedL));
+    analogWrite(_pwmR, abs(_speedR));
+
+    _currentSpeed = speed;
+    _currentTurn = turn;
+}
+
+

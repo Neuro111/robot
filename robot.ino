@@ -18,6 +18,7 @@ Encoder encRight(3, 8);
 
 double encPosition = 0;
 double encOrientation = 0;
+double encRotation = 0;
 double encVelocity = 0;
 double encVelocityFiltered = 0;
 double filterLPF = 0.08;
@@ -56,6 +57,24 @@ double position = 0;
 regulatorPID positionPID(&position, &requestedVelocity, &requestedPosition, positionKp, positionKi, positionKd, DIRECT);
 
 
+// Rotation PID
+double requestedRotation = 0;
+double rotationKp = 100;
+double rotationKi = 0;
+double rotationKd = 0;
+double outputTurn;
+
+regulatorPID rotationPID(&encRotation, &outputTurn, &requestedRotation, rotationKp, rotationKi, rotationKd, DIRECT);
+
+
+// TURN PID
+double requestedTurn = 0;
+double turnKp = 0;
+double turnKi = 0;
+double turnKd = 0;
+//double outputTurn;
+
+regulatorPID turnPID(&encOrientation, &requestedRotation, &requestedTurn, turnKp, turnKi, turnKd, DIRECT);
 
 
 #define LED_PIN 13 // (Arduino is 13, Teensy is 11, Teensy++ is 6)
@@ -165,6 +184,16 @@ void setup() {
     positionPID.SetSampleTime(100);
     positionPID.SetOutputLimits(-0.2, 0.2); // maksymalna prędkość którą robot będzie wracał do pozycji
     positionPID.SetITermLimits(-0.2, 0.2);
+
+    turnPID.SetMode(MANUAL);
+    turnPID.SetSampleTime(100);
+    turnPID.SetOutputLimits(-50, 50); 
+    turnPID.SetITermLimits(-50, 50);
+
+    rotationPID.SetMode(AUTOMATIC);
+    rotationPID.SetSampleTime(10);
+    rotationPID.SetOutputLimits(-50, 50); 
+    rotationPID.SetITermLimits(-50, 50);
   } else {
     // ERROR!
     // 1 = initial memory load failed
@@ -223,10 +252,11 @@ void loop() {
     else {
       angleTheta = ypr[1] * 180 / M_PI;
       positionPID.Compute();
+      turnPID.Compute();
       velocityPID.Compute();
       balancePID.Compute();
 
-      motor.move(outputPWM, minAbsSpeed);
+      motor.moveTurn(outputPWM, outputTurn);
     }
 
     long actTime = micros();
@@ -242,13 +272,18 @@ void loop() {
 //      Serial.print(newLeft);
 //      Serial.print("\t");
 //      Serial.println(newRight);
-      encOrientation = (double)(newLeft - newRight) * 360 / 3718; //3840;
       encVelocity = (double)(newPosition - encPosition) * 188500 / dt;  // obr/min: (double)(newPosition - encPosition) * 60000000 / dt;
       encVelocityFiltered = encVelocityFiltered * (1 - filterLPF) + encVelocity * filterLPF;
+
+      double newOrientation = (double)(newLeft - newRight) * 360 / 3718; //3840; kąt w stopniach
+      encRotation = (double)(newOrientation - encOrientation) * 1000000/dt;  //stopnie na sekundę
+
+
 
       position = (double) newPosition * 0.1885;
       velocity = encVelocityFiltered;
       encPosition = newPosition;
+      encOrientation = newOrientation;
     }
 
 
@@ -266,6 +301,14 @@ void loop() {
           double reqSpeed = data;
         //  positionPID.SetOutputLimits(-itermlim, itermlim);
           requestedVelocity = reqSpeed /100;
+        }
+         // requestedTheta = data;
+          break;
+        case 'o':
+        {
+          requestedRotation = data/100;
+        //  positionPID.SetOutputLimits(-itermlim, itermlim);
+         // requestedVelocity = reqSpeed /100;
         }
          // requestedTheta = data;
           break;
