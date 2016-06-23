@@ -59,7 +59,7 @@ regulatorPID positionPID(&position, &requestedVelocity, &requestedPosition, posi
 
 // Rotation PID
 double requestedRotation = 0;
-double rotationKp = 100;
+double rotationKp = 2;
 double rotationKi = 0;
 double rotationKd = 0;
 double outputTurn;
@@ -185,7 +185,7 @@ void setup() {
     positionPID.SetOutputLimits(-0.2, 0.2); // maksymalna prędkość którą robot będzie wracał do pozycji
     positionPID.SetITermLimits(-0.2, 0.2);
 
-    turnPID.SetMode(MANUAL);
+    turnPID.SetMode(AUTOMATIC);
     turnPID.SetSampleTime(100);
     turnPID.SetOutputLimits(-50, 50); 
     turnPID.SetITermLimits(-50, 50);
@@ -252,6 +252,7 @@ void loop() {
     else {
       angleTheta = ypr[1] * 180 / M_PI;
       positionPID.Compute();
+      rotationPID.Compute();
       turnPID.Compute();
       velocityPID.Compute();
       balancePID.Compute();
@@ -276,9 +277,10 @@ void loop() {
       encVelocityFiltered = encVelocityFiltered * (1 - filterLPF) + encVelocity * filterLPF;
 
       double newOrientation = (double)(newLeft - newRight) * 360 / 3718; //3840; kąt w stopniach
-      encRotation = (double)(newOrientation - encOrientation) * 1000000/dt;  //stopnie na sekundę
+      double encRotationRAW = (double)(newOrientation - encOrientation) * 1000000/dt;  //stopnie na sekundę
 
-
+    //  double rotationFilter = encRotation
+      encRotation = encRotation * (1- 0.01) + encRotationRAW * 0.01;
 
       position = (double) newPosition * 0.1885;
       velocity = encVelocityFiltered;
@@ -306,7 +308,8 @@ void loop() {
           break;
         case 'o':
         {
-          requestedRotation = data/100;
+          double reqRotation = data;
+          requestedRotation = reqRotation;
         //  positionPID.SetOutputLimits(-itermlim, itermlim);
          // requestedVelocity = reqSpeed /100;
         }
@@ -316,6 +319,13 @@ void loop() {
         {
           bool checked = data;
           positionPID.SetMode(checked? AUTOMATIC:MANUAL);
+        }
+         // requestedTheta = data;
+          break;
+          case 'g':
+        {
+          bool checked = data;
+          turnPID.SetMode(checked? AUTOMATIC:MANUAL);
         }
          // requestedTheta = data;
           break;
@@ -338,6 +348,30 @@ void loop() {
         case 'd':
           balanceKd = data;
           balancePID.SetTunings(balanceKp, balanceKi, balanceKd);
+          break;
+        case 'h':
+          turnKp = data;
+          turnPID.SetTunings(turnKp, turnKi, turnKd);
+          break;
+        case 'j':
+          turnKi = data;
+          turnPID.SetTunings(turnKp, turnKi, turnKd);
+          break;
+        case 'k':
+          turnKd = data;
+          turnPID.SetTunings(turnKp, turnKi, turnKd);
+          break;
+        case 'l':
+          rotationKp = data;
+          rotationPID.SetTunings(rotationKp, rotationKi, rotationKd);
+          break;
+        case 'z':
+          rotationKi = data;
+          rotationPID.SetTunings(rotationKp, rotationKi, rotationKd);
+          break;
+        case 'x':
+          rotationKd = data;
+          rotationPID.SetTunings(rotationKp, rotationKi, rotationKd);
           break;
         case 'm':
         {
@@ -457,8 +491,8 @@ void loop() {
     Serial.print("ypr"); Serial.print("\t");
     Serial.print(ypr[1] * 180 / M_PI); Serial.print("\t");
     Serial.print(requestedTheta); Serial.print("\t");
-    Serial.print(requestedVelocity); Serial.print("\t");
-    Serial.print(position); Serial.println("\t");
+    Serial.print(requestedRotation); Serial.print("\t");
+    Serial.print(encRotation); Serial.println("\t");
     //&angleTheta, &outputPWM, &requestedTheta
 #endif
     // blink LED to indicate activity
