@@ -23,6 +23,8 @@ double encVelocity = 0;
 double encVelocityFiltered = 0;
 double filterLPF = 0.08;
 long lastTime = 0;
+long lastTime2 = 0;
+int timer2 = 0;
 
 MotorController motor(pwmR, dirR, pwmL, dirL);
 
@@ -96,7 +98,7 @@ float ypr[3];           // [yaw, pitch, roll]   yaw/pitch/roll container and gra
 int16_t ax, ay, az;
 int16_t gx, gy, gz;
 
-bool oneTime = false;
+//bool oneTime = false;
 
 
 // ================================================================
@@ -114,8 +116,8 @@ void setup() {
   Wire.begin();
   TWBR = 24;
 
-  Serial.begin(115200);
-
+ // Serial.begin(115200);
+Serial.begin(9600);
 
   // initialize device
   Serial.println(F("Initializing I2C devices..."));
@@ -207,6 +209,7 @@ void setup() {
   // configure LED for output
 
   lastTime = millis();
+  lastTime2 = micros();
   //  long actTimeMillis = millis();
   // int dtMillis = actTimeMillis - lastTimeMillis;
 
@@ -220,30 +223,100 @@ void setup() {
 }
 
 void loop() {
+  
+//12480
+//7280
+//7280
+//12480
+//7280
+//7280
+//12480
+//7280
+
+
+
+//852
+//424
+//424
+//848
+//432
+//432
+//844
+//424
+//424
+
+//12
+//328
+//328
+//852
+//1360
+//852
+
+//12
+//4148
+//4148
+//12480
+//21840
+//12480
+
+
+
+
+
+  blinkState = !blinkState;
+  minAbsSpeed++;
+  digitalWrite(LED_PIN, blinkState);
+  long actTime2 = micros();
+  int timer1 = actTime2-lastTime2;
+  lastTime2=actTime2;
+  if(minAbsSpeed == 1)
+  {
+    timer2 = timer1;
+  }
+  else
+  {
+    if (minAbsSpeed == 2)
+    {
+      Serial.println(timer1);
+    }
+    else if (minAbsSpeed == 3)
+    {
+      Serial.println(timer1);
+      Serial.println(timer1);
+    }
+    else
+    {
+      Serial.println(timer1);
+      Serial.println(timer2);
+      Serial.println(timer1);
+      minAbsSpeed =0;
+    }
+  }
+  
   // if programming failed, don't try to do anything
-  if (!dmpReady) return;
+ // if (!dmpReady) return;
 
   // wait for MPU interrupt or extra packet(s) available
 //  while (!mpuInterrupt && fifoCount < packetSize) {
-    if (oneTime) {
-      oneTime = false;
-
-
-
-      /* Print Data */
-#if 0 // Set to 1 to activate
-      mpu.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
-      Serial.print(ax); Serial.print("\t");
-      Serial.print(ay); Serial.print("\t");
-      Serial.print(az); Serial.print("\t");
-      Serial.print(gx); Serial.print("\t");
-      Serial.print(gy); Serial.print("\t");
-      Serial.print(gz); Serial.print("\t");
-      // Serial.print("\t");
-#endif
-
-    }
-    if (abs(ypr[1]) > 0.6)
+//    if (oneTime) {
+//      oneTime = false;
+//
+//
+//
+//      /* Print Data */
+//#if 0 // Set to 1 to activate
+//      mpu.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
+//      Serial.print(ax); Serial.print("\t");
+//      Serial.print(ay); Serial.print("\t");
+//      Serial.print(az); Serial.print("\t");
+//      Serial.print(gx); Serial.print("\t");
+//      Serial.print(gy); Serial.print("\t");
+//      Serial.print(gz); Serial.print("\t");
+//      // Serial.print("\t");
+//#endif
+//
+//    }
+ /*   if (abs(ypr[1]) > 0.6)
     {
       // motor.stopMoving();
       angleTheta = requestedTheta;
@@ -261,7 +334,7 @@ void loop() {
     }
 
     long actTime = micros();
-    if ((actTime - lastTime) > 5)
+    if ((actTime - lastTime) > 20)
     {
       int dt = actTime - lastTime;
       lastTime = actTime;
@@ -427,7 +500,7 @@ void loop() {
     // .
 
  // }
-  oneTime = true;
+ // oneTime = true;
   // reset interrupt flag and get INT_STATUS byte
   mpuInterrupt = false;
   mpuIntStatus = mpu.getIntStatus();
@@ -443,7 +516,7 @@ void loop() {
 
     // otherwise, check for DMP data ready interrupt (this should happen frequently)
   } else if (mpuIntStatus & 0x02) {
-    // wait for correct available data length, should be a VERY short wait
+  /*  // wait for correct available data length, should be a VERY short wait
     while (fifoCount < packetSize) fifoCount = mpu.getFIFOCount();
 
     // read a packet from FIFO
@@ -487,12 +560,12 @@ void loop() {
 #endif
 
 
-#if 1
-    Serial.print("ypr"); Serial.print("\t");
-    Serial.print(ypr[1] * 180 / M_PI); Serial.print("\t");
-    Serial.print(requestedTheta); Serial.print("\t");
-    Serial.print(requestedRotation); Serial.print("\t");
-    Serial.print(encRotation); Serial.println("\t");
+#if 0
+ //   Serial.print("ypr"); Serial.print("\t");
+  //  Serial.print(encPosition); Serial.print("\t");
+  //  Serial.print(encOrientation); Serial.print("\t");
+ //   Serial.print(encVelocity); Serial.print("\t");
+ //   Serial.print(encRotation); Serial.println("\t");
     //&angleTheta, &outputPWM, &requestedTheta
 #endif
     // blink LED to indicate activity
@@ -500,5 +573,5 @@ void loop() {
     digitalWrite(LED_PIN, blinkState);
 
     // delay(2);
-  }
+  }*/
 }
